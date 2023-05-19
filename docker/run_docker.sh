@@ -13,10 +13,10 @@ if [[ $1 = "--nvidia" ]] || [[ $1 = "-n" ]]
                 -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
                 -e XAUTHORITY \
                 -v /dev:/dev \
-                -v $ROOT_DIR/turtlebot3_ws:/turtlebot3_ws \
+                -v /home/$USER/misis:/misis \
                --net=host \
                --privileged \
-               --name turtle-bot3 turtle-bot3-img
+               --name ros-mir ros-mir-img
 
 else
 
@@ -27,9 +27,8 @@ else
                 -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
                 -e XAUTHORITY \
                 -v /dev:/dev \
-                -v $ROOT_DIR/turtlebot3_ws:/turtlebot3_ws \
+                -v /home/$USER/misis:/misis \
                --net=host \
                --privileged \
-               --name turtle-bot3 turtle-bot3-img
+               --name ros-mir ros-mir-img
 fi
-
