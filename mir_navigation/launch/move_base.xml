@@ -21,5 +21,6 @@
         <rosparam file="$(find mir_navigation)/config/costmap_local_params_plugins_no_virtual_walls.yaml" command="load" unless="$(arg with_virtual_walls)" />
         <remap from="map" to="/map" />
         <remap from="marker" to="move_base_node/DWBLocalPlanner/markers" />
+        <remap from="/cmd_vel" to="/my_cmd_vel"/>
     </node>
 </launch>
