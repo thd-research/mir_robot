@@ -89,6 +89,7 @@ class ROS_preset:
 
         # connection to ROS topics
         self.pub_cmd_vel = rospy.Publisher("/cmd_vel", Twist, queue_size=1, latch=False)
+        self.pub_debag = rospy.Publisher("/debag", Float32MultiArray, queue_size=1)
         self.sub_odom = rospy.Subscriber("/odom", Odometry, self.odometry_callback, queue_size=1)
         #self.sub_laser_scan = rospy.Subscriber("/scan", LaserScan, self.laser_scan_callback, queue_size=1)
         self.sub_DWB_plan = rospy.Subscriber("/move_base_node/DWBLocalPlanner/local_plan", Path, self.DWB_callback, queue_size=10)
@@ -106,7 +107,7 @@ class ROS_preset:
         self.rotation_counter = 0
         self.prev_theta = 0
         self.new_theta = 0
-
+        self.dtheta = 0
         theta_goal = self.state_goal[2]
 
         self.rotation_matrix = np.array([
@@ -119,6 +120,7 @@ class ROS_preset:
         self.obstacles_parser = Obstacles_parser(safe_margin_mult=1.35)
         self.flag_goal = False
         self.flag_path = False
+
     def odometry_callback(self, msg):
         # self.odom_lock.acquire()
         # Read current robot state
@@ -168,24 +170,25 @@ class ROS_preset:
 
             inv_t_matrix = np.linalg.inv(t_matrix)
 
-            if self.prev_theta * theta < 0 and abs(self.prev_theta - theta) > np.pi:
-                if self.prev_theta < 0:
-                    self.rotation_counter -= 1
-                else:
-                    self.rotation_counter += 1
+            # if self.prev_theta * theta < 0 and abs(self.prev_theta - theta) > np.pi:
+            #     if self.prev_theta < 0:
+            #         self.rotation_counter -= 1
+            #     else:
+            #         self.rotation_counter += 1
 
-            self.prev_theta = theta
-            theta = theta + 2 * math.pi * self.rotation_counter
+            # self.prev_theta = theta
+            # theta = theta + 2 * math.pi * self.rotation_counter
+            
+            dir_curr = np.array([cos(theta), sin(theta), 0])
+            dir_goal = np.array([cos(theta_goal), sin(theta_goal), 0])
+            sign = -np.sign(np.cross(dir_curr,dir_goal)[2])
 
-            new_theta = theta - theta_goal
-
+            self.dtheta = sign*np.abs(np.arccos(dir_curr.dot(dir_goal))) #theta - theta_goal
+  
             # POSITION transform
             temp_pos = [x, y, 0, 1]
             new_state = np.dot(inv_t_matrix, np.transpose(temp_pos))
-            self.new_state = np.array([new_state[0], new_state[1], new_theta])
-            # print("self.new_state", self.new_state)
-            # print("self.state", self.state)
-            # print("local_goal", local_goal)
+            self.new_state = np.array([new_state[0], new_state[1], self.dtheta])
             inv_R_matrix = inv_t_matrix[:3, :3]
             zeros_like_R = np.zeros(inv_R_matrix.shape)
             inv_R_matrix = np.linalg.inv(rotation_matrix)
@@ -265,7 +268,7 @@ class ROS_preset:
         while not rospy.is_shutdown(): #and time_lib.time() - start_time < 180:
             t = rospy.get_time() - self.time_start
             self.t = t
-
+ 
             velocity = Twist()
             action = controllers.ctrl_selector(self.t, self.new_state, action_manual, self.ctrl_nominal, 
                                                 self.ctrl_benchm, self.ctrl_mode, self.constraints, self.line_constrs)
@@ -289,6 +292,9 @@ class ROS_preset:
             velocity.linear.x = action[0]
             velocity.angular.z = action[1]
 
+            msg = Float32MultiArray()
+            msg.data.append(self.dtheta)
+            self.pub_debag.publish(msg)
 
             if (np.sqrt((self.state_goal[0] - self.state[0])**2 + (self.state_goal[1] - self.state[1])**2) < 0.3
                 and (np.abs(np.degrees(self.state_goal[2] - self.state[2])) % 360 < 15) and t > 10):
