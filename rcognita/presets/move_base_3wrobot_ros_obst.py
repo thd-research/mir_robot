@@ -91,7 +91,7 @@ class ROS_preset:
         self.pub_cmd_vel = rospy.Publisher("/cmd_vel", Twist, queue_size=1, latch=False)
         self.pub_debag = rospy.Publisher("/debag", Float32MultiArray, queue_size=1)
         self.sub_odom = rospy.Subscriber("/odom", Odometry, self.odometry_callback, queue_size=1)
-        #self.sub_laser_scan = rospy.Subscriber("/scan", LaserScan, self.laser_scan_callback, queue_size=1)
+        self.sub_laser_scan = rospy.Subscriber("/scan", LaserScan, self.laser_scan_callback, queue_size=1)
         self.sub_DWB_plan = rospy.Subscriber("/move_base_node/DWBLocalPlanner/local_plan", Path, self.DWB_callback, queue_size=10)
         self.sub_current_goal = rospy.Subscriber("move_base_node/current_goal", PoseStamped, self.current_goal_callback)
         self.state = np.zeros((3))
@@ -241,21 +241,21 @@ class ROS_preset:
 
     def laser_scan_callback(self, dt):
         self.lidar_lock.acquire()
-        # try:
-        #     new_blocks, LL, CC, x, y = self.obstacles_parser.get_obstacles(np.array(dt.ranges), fillna='else', state=self.new_state)
-        #     self.lines = LL
-        #     self.circles = CC
-        #     self.line_constrs = [self.obstacles_parser.get_buffer_area([[i[0].x, i[0].y], [i[1].x, i[1].y]], 0.178 * 1.75) for i in LL]
+        try:
+            new_blocks, LL, CC, x, y = self.obstacles_parser.get_obstacles(np.array(dt.ranges), fillna='else', state=self.new_state)
+            self.lines = LL
+            self.circles = CC
+            self.line_constrs = [self.obstacles_parser.get_buffer_area([[i[0].x, i[0].y], [i[1].x, i[1].y]], 0.178 * 1.75) for i in LL]
 
-        #     self.circle_constrs = [Point(i.center[0], i.center[1]).buffer(i.r) for i in CC]
-        #     self.constraints = self.obstacles_parser(np.array(dt.ranges), np.array(self.new_state))
+            self.circle_constrs = [Point(i.center[0], i.center[1]).buffer(i.r) for i in CC]
+            self.constraints = self.obstacles_parser(np.array(dt.ranges), np.array(self.new_state))
 
-        #     self.polygonal_constraints = self.line_constrs + self.circle_constrs
-        #     #self.constraints = []
+            self.polygonal_constraints = self.line_constrs + self.circle_constrs
+            #self.constraints = []
 
-        # except ValueError as exc:
-        #     print('Exception!', exc)
-        #     self.constraints = []
+        except ValueError as exc:
+            print('Exception!', exc)
+            self.constraints = []
 
         self.odom_lock.release()
 
