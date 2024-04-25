@@ -1,3 +1,31 @@
+# Copyright (c) 2018-2022, Martin Günther (DFKI GmbH) and contributors
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+#
+#    * Neither the name of the the copyright holder nor the names of its
+#      contributors may be used to endorse or promote products derived from
+#      this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 import websocket
 import threading
 
@@ -50,10 +78,10 @@ class RosbridgeSetup:
     def callService(self, serviceName, callback=None, msg=None):
         id = self.generate_id()
         call = {"op": "call_service", "id": id, "service": serviceName}
-        if msg != None:
+        if msg is not None:
             call['args'] = msg
 
-        if callback == None:
+        if callback is None:
             self.resp = None
 
             def internalCB(msg):
@@ -63,7 +91,7 @@ class RosbridgeSetup:
             self.addServiceCallback(id, internalCB)
             self.send(call)
 
-            while self.resp == None:
+            while self.resp is None:
                 time.sleep(0.01)
 
             return self.resp
@@ -75,7 +103,7 @@ class RosbridgeSetup:
     def send(self, obj):
         try:
             self.connection.sendString(json.dumps(obj))
-        except:
+        except Exception:
             traceback.print_exc()
             raise
 
@@ -114,7 +142,7 @@ class RosbridgeSetup:
                         for callback in self.callbacks[topic]:
                             try:
                                 callback(msg)
-                            except:
+                            except Exception:
                                 print("exception on callback", callback, "from", topic)
                                 traceback.print_exc()
                                 raise
@@ -126,7 +154,7 @@ class RosbridgeSetup:
                             try:
                                 # print 'id:', id, 'func:', self.service_callbacks[id]
                                 self.service_callbacks[id](values)
-                            except:
+                            except Exception:
                                 print("exception on callback ID:", id)
                                 traceback.print_exc()
                                 raise
@@ -136,7 +164,7 @@ class RosbridgeSetup:
                     print("Recieved unknown option - it was: ", option)
             else:
                 print("No OP key!")
-        except:
+        except Exception:
             print("exception in onMessageReceived")
             print("message", message)
             traceback.print_exc()

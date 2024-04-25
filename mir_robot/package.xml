@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>mir_robot</name>
-  <version>1.1.6</version>
+  <version>1.1.7</version>
   <description>
     URDF description, Gazebo simulation, navigation, bringup launch files, message and action descriptions for the MiR robot.
   </description>
@@ -11,9 +11,9 @@
 
   <license>BSD</license>
 
-  <url type="website">https://github.com/dfki-ric/mir_robot</url>
-  <url type="repository">https://github.com/dfki-ric/mir_robot</url>
-  <url type="bugtracker">https://github.com/dfki-ric/mir_robot/issues</url>
+  <url type="website">https://github.com/DFKI-NI/mir_robot</url>
+  <url type="repository">https://github.com/DFKI-NI/mir_robot</url>
+  <url type="bugtracker">https://github.com/DFKI-NI/mir_robot/issues</url>
 
   <buildtool_depend>catkin</buildtool_depend>
 

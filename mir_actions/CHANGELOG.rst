@@ -2,6 +2,12 @@
 Changelog for package mir_actions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+1.1.7 (2023-01-20)
+------------------
+* Update MirMoveBase action to 2.10.3.1
+* Don't set cmake_policy CMP0048
+* Contributors: Martin Günther
+
 1.1.6 (2022-06-02)
 ------------------
 * Rename mir_100 -> mir
@@ -21,7 +27,7 @@ Changelog for package mir_actions
   It was removed in MiR software 2.4.0.
 * Update mir_actions to MiR 2.8.3
 * Adjust to changed MirMoveBase action (MiR >= 2.4.0)
-  See `#45 <https://github.com/dfki-ric/mir_robot/issues/45>`_.
+  See `#45 <https://github.com/DFKI-NI/mir_robot/issues/45>`_.
 * Contributors: Martin Günther
 
 1.1.2 (2021-05-12)

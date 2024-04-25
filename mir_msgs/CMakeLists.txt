@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.5.1)
-cmake_policy(SET CMP0048 NEW)
 project(mir_msgs)
 
 find_package(catkin REQUIRED COMPONENTS
@@ -14,14 +13,15 @@ find_package(catkin REQUIRED COMPONENTS
 # Generate messages in the 'msg' folder
 add_message_files(
   FILES
-    BatteryCurrents.msg
+    AngleMeasurment.msg
     BMSData.msg
+    BatteryCurrents.msg
     BrakeState.msg
     ChargingState.msg
     Device.msg
     Devices.msg
-    Encoders.msg
     EncoderTestEntry.msg
+    Encoders.msg
     Error.msg
     Event.msg
     Events.msg
@@ -30,14 +30,17 @@ add_message_files(
     Gpio.msg
     GripperState.msg
     HeightState.msg
+    HookData.msg
     HookExtendedStatus.msg
     HookStatus.msg
     IOs.msg
     JoystickVel.msg
     LocalMapStat.msg
     MirExtra.msg
+    MirLocalPlannerPathTypes.msg
     MissionCtrlCommand.msg
     MissionCtrlState.msg
+    MovingState.msg
     PalletLifterStatus.msg
     Path.msg
     Pendant.msg
@@ -47,15 +50,20 @@ add_message_files(
     PowerBoardMotorStatus.msg
     PrecisionDockingStatus.msg
     Proximity.msg
-    ResourcesState.msg
     ResourceState.msg
+    ResourcesAcquisition.msg
+    ResourcesState.msg
     RobotMode.msg
     RobotState.msg
     RobotStatus.msg
     SafetyStatus.msg
     Serial.msg
+    ServiceResponseHeader.msg
+    SkidDetectionDiff.msg
+    SkidDetectionStampedFloat.msg
     SoundEvent.msg
     StampedEncoders.msg
+    TimeDebug.msg
     Trolley.msg
     Twist2D.msg
     UserPrompt.msg

@@ -1,5 +1,5 @@
-mir_driver
-==========
+mir_robot
+=========
 
 This repo contains a ROS driver and ROS configuration files (URDF description,
 Gazebo launch files, move_base config, bringup launch files, message and action
@@ -8,7 +8,7 @@ This is a community project created by us ([DFKI](https://www.dfki.de/), the
 German Research Center for Artificial Intelligence) to use the MiR Robots with
 ROS. We are not affiliated with Mobile Industrial Robots. If you find a bug or
 missing feature in this software, please report it on the
-[issue tracker](https://github.com/dfki-ric/mir_robot/issues).
+[issue tracker](https://github.com/DFKI-NI/mir_robot/issues).
 
 Supported MiR robots and software versions
 ------------------------------------------
@@ -22,8 +22,17 @@ This repo has been confirmed to work with the following robots:
 It probably also works with the MiR250 and MiR1000. If you can test it on one
 of those, please let us know if it works.
 
-The only supported software version is **MiR software 2.8.3.1**. You can try if
-it works with other versions, but this is the one that is known to work.
+This repo has been tested with the following MiR software versions:
+
+* 2.8.3.1
+* 2.13.4.1
+* 2.13.5.3
+
+You can try if it works with other versions, but these are the ones that are
+known to work.
+
+:warning: **Do NOT update to the upcoming version 3.0; it is very well possible
+that this repo will no longer work with this version!**
 
 
 Package overview
@@ -81,7 +90,7 @@ mkdir -p ~/catkin_ws/src
 cd ~/catkin_ws/src/
 
 # clone mir_robot into the catkin workspace
-git clone -b noetic https://github.com/dfki-ric/mir_robot.git
+git clone -b noetic https://github.com/DFKI-NI/mir_robot.git
 
 # use rosdep to install all dependencies (including ROS itself)
 sudo apt-get update -qq
@@ -98,7 +107,7 @@ catkin_make -DCMAKE_BUILD_TYPE=RelWithDebugInfo
 ```
 
 In case you encounter problems, please compare the commands above to the build
-step in [`.travis.yml`](.travis.yml); that should always have the most
+step in [`.github/workflows/github-actions.yml`](.github/workflows/github-actions.yml); that should always have the most
 recent list of commands.
 
 You should add the following line to the end of your `~/.bashrc`, and then
@@ -313,14 +322,59 @@ manual interaction.
 
 To install things on the internal MiR PC:
 
-* connect a monitor and keyboard to the ports that are exposed on one corner of the MiR
-* boot into a live USB linux system
-* `chroot` into the MiR PC
-* download `chrony_2.1.1-1ubuntu0.1_amd64.deb`,
-  `libtomcrypt0_1.17-7ubuntu0.1_amd64.deb`, `libtommath0_0.42.0-1.2_amd64.deb`
-  and `timelimit_1.8-1_amd64.deb` from a PC that has internet and install them
-  in the `chroot` environment onto the MiR PC using `dpkg -i`
-* set up `/etc/chrony/chrony.conf`
+* Connect a monitor, keyboard and USB stick with a live Linux system to the
+  ports that are exposed on one corner of the MiR.
+* Boot into the live USB Linux system.
+* `chroot` into the MiR PC:
+
+    1. Mount MiR partition and bind /dev, /run etc.
+       You can use fdisk -l to figure out which partition to mount.
+       (Here it's _sda3_):
+
+       ```bash
+       sudo mkdir -p /media/mir
+       sudo mount /dev/sda3 /media/mir
+
+       for dir in /dev /dev/pts /proc /sys /run; do sudo mount --bind $dir /media/mir/@$dir; done
+       ```
+
+    2. `chroot` into the MiR PC:
+
+       ```bash
+       sudo chroot /media/mir/@/
+       ```
+
+* Create user:
+
+   ```bash
+   adduser newuser
+   usermod -aG sudo newuser
+   ```
+
+* Reboot and log into MiR PC via SSH and the newly created user name.
+* Install Chrony:
+
+   ```bash
+   sudo apt update
+   sudo apt install chrony
+
+   # if not installable (to fix broken dependencies):
+   sudo apt -f install
+   sudo apt install chrony
+   ```
+
+* Set up `/etc/chrony/chrony.conf`.
+* Make sure all old ntp configs are configured in chrony. For this, add the
+  following to your chrony.conf (the old ntp.conf part is commented out):
+
+```bash
+# Clients from this subnet have unlimited access, but only if
+# cryptographically authenticated.
+#restrict 192.168.12.255 mask 255.255.255.0 nomodify notrap nopeer
+allow 192.168.12.0/24 nomodify notrap nopeer
+```
+
+* Restart chrony service.
 
 
 Troubleshooting
@@ -335,29 +389,73 @@ status `SUCCEEDED` arrives before the corresponding result message, this
 warning will be printed. It can be safely ignored.
 
 
-Travis - Continuous Integration
--------------------------------
+### Gazebo prints errors: "No p gain specified for pid."
 
-| Melodic                                                                                                                  | Noetic                                                                                                                  |
-|--------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| [![Build Status](https://travis-ci.org/dfki-ric/mir_robot.svg?branch=melodic)](https://travis-ci.org/dfki-ric/mir_robot) | [![Build Status](https://travis-ci.org/dfki-ric/mir_robot.svg?branch=noetic)](https://travis-ci.org/dfki-ric/mir_robot) |
+These errors are expected and can be ignored.
+
+Unfortunately, we cannot set the PID gains (to silence the error) due to the
+following behavior of Gazebo:
+
+1. When using the `PositionJointInterface`, you *must* set the PID values for the
+   joints using that interface, otherwise you will run into
+   [this bug](https://github.com/ros-simulation/gazebo_ros_pkgs/issues/612).
+2. When using the `VelocityJointInterface`, if you omit the PID values, Gazebo
+   just perfectly follows the commanded velocities. If you specify PID values,
+   Gazebo will use a PID controller to approximate following the commanded
+   velocities, so you have to tune the PID controllers.
+
+Since we just want Gazebo to follow our commanded velocities, we cannot set the
+PID values for joints using the VelocityJointInterface, so the errors get
+printed (but can be ignored).
+
+
+pre-commit Formatting Checks
+----------------------------
+
+This repo has a [pre-commit](https://pre-commit.com/) check that runs in CI.
+You can use this locally and set it up to run automatically before you commit
+something. To install, use pip:
+
+```bash
+pip3 install --user pre-commit
+```
+
+To run over all the files in the repo manually:
+
+```bash
+pre-commit run -a
+```
+
+To run pre-commit automatically before committing in the local repo, install the git hooks:
+
+```bash
+pre-commit install
+```
+
+
+GitHub Actions - Continuous Integration
+---------------------------------------
+
+| Noetic                                                                                                                                                                               |
+|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [![Build Status](https://github.com/DFKI-NI/mir_robot/actions/workflows/github-actions.yml/badge.svg)](https://github.com/DFKI-NI/mir_robot/actions/workflows/github-actions.yml/) |
 
 
 ROS Buildfarm
 -------------
 
-|                                                        | Melodic source deb                                                                                                                                                                      | Melodic binary deb                                                                                                                                                                                      | Noetic source deb                                                                                                                                                                     | Noetic binary deb                                                                                                                                                                                     |
-|--------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [mir_actions](http://wiki.ros.org/mir_actions)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_actions__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_actions__ubuntu_bionic__source/)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_actions__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_actions__ubuntu_bionic_amd64__binary/)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_actions__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_actions__ubuntu_focal__source/)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_actions__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_actions__ubuntu_focal_amd64__binary/)         |
-| [mir_description](http://wiki.ros.org/mir_description) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_description__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_description__ubuntu_bionic__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_description__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_description__ubuntu_bionic_amd64__binary/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_description__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_description__ubuntu_focal__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_description__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_description__ubuntu_focal_amd64__binary/) |
-| [mir_driver](http://wiki.ros.org/mir_driver)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_driver__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_driver__ubuntu_bionic__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_driver__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_driver__ubuntu_bionic_amd64__binary/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_driver__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_driver__ubuntu_focal__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_driver__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_driver__ubuntu_focal_amd64__binary/)           |
-| [mir_dwb_critics](http://wiki.ros.org/mir_dwb_critics) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_dwb_critics__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_dwb_critics__ubuntu_bionic__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_dwb_critics__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_dwb_critics__ubuntu_bionic_amd64__binary/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_dwb_critics__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_dwb_critics__ubuntu_focal__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_dwb_critics__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_dwb_critics__ubuntu_focal_amd64__binary/) |
-| [mir_gazebo](http://wiki.ros.org/mir_gazebo)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_gazebo__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_gazebo__ubuntu_bionic__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_gazebo__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_gazebo__ubuntu_bionic_amd64__binary/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_gazebo__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_gazebo__ubuntu_focal__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_gazebo__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_gazebo__ubuntu_focal_amd64__binary/)           |
-| [mir_msgs](http://wiki.ros.org/mir_msgs)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_msgs__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_msgs__ubuntu_bionic__source/)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_msgs__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_msgs__ubuntu_bionic_amd64__binary/)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_msgs__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_msgs__ubuntu_focal__source/)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_msgs__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_msgs__ubuntu_focal_amd64__binary/)               |
-| [mir_navigation](http://wiki.ros.org/mir_navigation)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_navigation__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_navigation__ubuntu_bionic__source/)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_navigation__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_navigation__ubuntu_bionic_amd64__binary/)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_navigation__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_navigation__ubuntu_focal__source/)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_navigation__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_navigation__ubuntu_focal_amd64__binary/)   |
-| [mir_robot](http://wiki.ros.org/mir_robot)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__mir_robot__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__mir_robot__ubuntu_bionic__source/)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__mir_robot__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__mir_robot__ubuntu_bionic_amd64__binary/)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_robot__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_robot__ubuntu_focal__source/)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_robot__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_robot__ubuntu_focal_amd64__binary/)             |
-| [sdc21x0](http://wiki.ros.org/sdc21x0)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Msrc_uB__sdc21x0__ubuntu_bionic__source)](http://build.ros.org/job/Msrc_uB__sdc21x0__ubuntu_bionic__source/)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mbin_uB64__sdc21x0__ubuntu_bionic_amd64__binary)](http://build.ros.org/job/Mbin_uB64__sdc21x0__ubuntu_bionic_amd64__binary/)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__sdc21x0__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__sdc21x0__ubuntu_focal__source/)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__sdc21x0__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__sdc21x0__ubuntu_focal_amd64__binary/)                 |
+|                                                        | Noetic source deb                                                                                                                                                                     | Noetic binary deb                                                                                                                                                                                     |
+|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [mir_actions](http://wiki.ros.org/mir_actions)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_actions__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_actions__ubuntu_focal__source/)         | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_actions__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_actions__ubuntu_focal_amd64__binary/)         |
+| [mir_description](http://wiki.ros.org/mir_description) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_description__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_description__ubuntu_focal__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_description__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_description__ubuntu_focal_amd64__binary/) |
+| [mir_driver](http://wiki.ros.org/mir_driver)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_driver__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_driver__ubuntu_focal__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_driver__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_driver__ubuntu_focal_amd64__binary/)           |
+| [mir_dwb_critics](http://wiki.ros.org/mir_dwb_critics) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_dwb_critics__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_dwb_critics__ubuntu_focal__source/) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_dwb_critics__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_dwb_critics__ubuntu_focal_amd64__binary/) |
+| [mir_gazebo](http://wiki.ros.org/mir_gazebo)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_gazebo__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_gazebo__ubuntu_focal__source/)           | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_gazebo__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_gazebo__ubuntu_focal_amd64__binary/)           |
+| [mir_msgs](http://wiki.ros.org/mir_msgs)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_msgs__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_msgs__ubuntu_focal__source/)               | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_msgs__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_msgs__ubuntu_focal_amd64__binary/)               |
+| [mir_navigation](http://wiki.ros.org/mir_navigation)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_navigation__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_navigation__ubuntu_focal__source/)   | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_navigation__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_navigation__ubuntu_focal_amd64__binary/)   |
+| [mir_robot](http://wiki.ros.org/mir_robot)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__mir_robot__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__mir_robot__ubuntu_focal__source/)             | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__mir_robot__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__mir_robot__ubuntu_focal_amd64__binary/)             |
+| [sdc21x0](http://wiki.ros.org/sdc21x0)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nsrc_uF__sdc21x0__ubuntu_focal__source)](http://build.ros.org/job/Nsrc_uF__sdc21x0__ubuntu_focal__source/)                 | [![Build Status](http://build.ros.org/buildStatus/icon?job=Nbin_uF64__sdc21x0__ubuntu_focal_amd64__binary)](http://build.ros.org/job/Nbin_uF64__sdc21x0__ubuntu_focal_amd64__binary/)                 |
 
-|                                            | Melodic devel                                                                                                                                                    | Melodic doc                                                                                                                                                      | Noetic devel                                                                                                                                                   | Noetic doc                                                                                                                                                     |
-|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [mir_robot](http://wiki.ros.org/mir_robot) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mdev__mir_robot__ubuntu_bionic_amd64)](http://build.ros.org/job/Mdev__mir_robot__ubuntu_bionic_amd64) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Mdoc__mir_robot__ubuntu_bionic_amd64)](http://build.ros.org/job/Mdoc__mir_robot__ubuntu_bionic_amd64) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Ndev__mir_robot__ubuntu_focal_amd64)](http://build.ros.org/job/Ndev__mir_robot__ubuntu_focal_amd64) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Ndoc__mir_robot__ubuntu_focal_amd64)](http://build.ros.org/job/Ndoc__mir_robot__ubuntu_focal_amd64) |
+|                                            | Noetic devel                                                                                                                                                   | Noetic doc                                                                                                                                                     |
+|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [mir_robot](http://wiki.ros.org/mir_robot) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Ndev__mir_robot__ubuntu_focal_amd64)](http://build.ros.org/job/Ndev__mir_robot__ubuntu_focal_amd64) | [![Build Status](http://build.ros.org/buildStatus/icon?job=Ndoc__mir_robot__ubuntu_focal_amd64)](http://build.ros.org/job/Ndoc__mir_robot__ubuntu_focal_amd64) |

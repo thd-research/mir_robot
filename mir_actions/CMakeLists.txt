@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.5.1)
-cmake_policy(SET CMP0048 NEW)
 project(mir_actions)
 
 find_package(catkin REQUIRED COMPONENTS
   actionlib
   geometry_msgs
   message_generation
+  mir_msgs
   nav_msgs
 )
 
@@ -23,6 +23,7 @@ add_action_files(
 generate_messages(
   DEPENDENCIES
     geometry_msgs
+    mir_msgs
     nav_msgs
 )
 
@@ -34,5 +35,6 @@ catkin_package(
     actionlib
     geometry_msgs
     message_runtime
+    mir_msgs
     nav_msgs
 )

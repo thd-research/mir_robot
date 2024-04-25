@@ -1,0 +1,58 @@
+To run Trajectory_Fallower2 node:
+
+1- Install mir_robot package from: https://github.com/DFKI-NI/mir_robot
+
+2- Copy and paste the "Trajectory_Follower2.py" node in :      catkin_ws/src/mir_robot/mir_navigation
+
+3- Go to:    catkin_ws/src/mir_robot/mir_navigation/launch      and open move_base.xml.  Add the following line in line 24 (just before </node>):
+
+<remap from="/cmd_vel" to="/my_cmd_vel"/>
+
+in order to force move_base node  to send its velocity commands to a dummy topic named as my_cmd_vel. Instead, we send our own velocity commands to cmd_vel.
+
+
+
+4- go to this address and change the configuration of DWB Planner, in order to better make trajectories. (up to now this is the best setting, but further refinement is possible). 
+
+catkin_ws/src/mir_robot/mir_navigation/config
+
+Open   (dwb_local_planner_params.yaml)  and change "scale" field of the following parameters as follows:
+
+PathAlign (line 63) : 70
+
+PathDistPruned (line 66) : 50
+
+PathProgress  (line 69): 2
+
+
+5- Do the following in a new terminal and next close it:
+
+cd catkin_ws
+
+catkin_make
+
+source devel/setup.bash
+
+
+6- open new terminals and in each run the following commands in turn:
+
+roslaunch mir_gazebo mir_maze_world.launch    (Then press run in Gazebo)
+
+roslaunch mir_navigation amcl.launch initial_pose_x:=10.0 initial_pose_y:=10.0
+
+roslaunch mir_navigation start_planner.launch
+
+rviz -d $(rospack find mir_navigation)/rviz/navigation.rviz
+
+rosrun mir_navigation Trajectory_Follower2.py
+
+
+Note: after running the node, you see an error, but this is not hindering the node performance, it is due to some variables that do not get yet any value as they are waiting to receive a trajectory from move_base.
+
+Now set a goal by rviz and after producing global and local trajectories by move_base, the node start to work.
+
+
+
+
+
+
